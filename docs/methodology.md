@@ -15,7 +15,7 @@ contenders versus classical models."*
 
 Replicate the **classical / traditional econometric** benchmarks used in the paper for
 forecasting Brazilian consumer-price inflation (IPCA), over the monthly sample
-**2004-01 … 2018-12**. The data-preparation stage's deliverable is a single, reproducible
+**2004-01 … 2018-12**. The data-preparation stage's output is a single, reproducible
 clean dataset that later model code consumes. The machine-learning contenders are out of
 scope for this project.
 
@@ -295,7 +295,7 @@ outputs). Prints validation diagnostics.
 
 ## 8. Next planned models (NOT yet implemented)
 
-Out of scope for the current deliverable:
+Out of scope for this project:
 
 1. **Hybrid Phillips Curve** — adds forward-looking (Focus) expectations to the backward
    specification.

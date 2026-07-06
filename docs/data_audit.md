@@ -133,5 +133,5 @@ prices). The unit **string** is inverted/mislabelled; the **values** are correct
   duplicate columns).
 - One identity judgement is documented and flagged (`(SP)` administered prices treated as
   national).
-- **The data is ready for the traditional-model phase**, subject to the single
+- **The data is ready for the forecasting models in this repository**, subject to the single
   documented `(SP)` caveat above.

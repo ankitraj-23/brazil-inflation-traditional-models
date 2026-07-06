@@ -91,6 +91,23 @@ their quirks is in [docs/data_audit.md](docs/data_audit.md).
 
 ---
 
+## Data availability and reproducibility
+
+Raw CEIC exports are **intentionally not committed** to this repository, because CEIC data
+may be licensed or access-controlled. Users with authorized CEIC access can reproduce the
+results by downloading the listed series and placing them in `data/raw/` under the expected
+filenames, then running the pipeline. Processed data (`data/processed/`) and all forecast
+outputs (`outputs/`) are generated locally by the scripts and are gitignored — nothing under
+`data/` or `outputs/` is redistributed here.
+
+- [data/README.md](data/README.md) — how to obtain the raw series and reproduce results.
+- [docs/data_manifest.md](docs/data_manifest.md) — expected raw files, processed variables,
+  sources, and transformations.
+- [docs/results_summary.md](docs/results_summary.md) — forecasting design and MSE-by-horizon
+  results.
+
+---
+
 ## Repository structure
 
 ```
