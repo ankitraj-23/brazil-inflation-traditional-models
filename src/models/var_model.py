@@ -1,4 +1,4 @@
-"""VAR(1) traditional benchmark for Phase 2 (Brazilian inflation forecasting).
+"""VAR(1) traditional benchmark (Brazilian inflation forecasting).
 
 Scope: first-order vector autoregression only. The random-walk / AR(1) baselines live in
 `baseline_models.py` and are not touched here.

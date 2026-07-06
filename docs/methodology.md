@@ -1,6 +1,6 @@
 # Methodology
 
-**Project:** Phase 2 — traditional econometric models for Brazilian inflation forecasting.
+**Project:** Traditional econometric models for Brazilian inflation forecasting.
 Replication of *"Machine learning methods for inflation forecasting in Brazil: new
 contenders versus classical models."*
 
@@ -15,9 +15,9 @@ contenders versus classical models."*
 
 Replicate the **classical / traditional econometric** benchmarks used in the paper for
 forecasting Brazilian consumer-price inflation (IPCA), over the monthly sample
-**2004-01 … 2018-12**. This phase's deliverable is a single, reproducible clean dataset
-that later model code will consume. The machine-learning contenders are out of scope for
-this phase.
+**2004-01 … 2018-12**. The data-preparation stage's deliverable is a single, reproducible
+clean dataset that later model code consumes. The machine-learning contenders are out of
+scope for this project.
 
 ---
 

@@ -1,4 +1,4 @@
-"""Backward-looking Phillips Curve traditional benchmark (Phase 2).
+"""Backward-looking Phillips Curve traditional benchmark.
 
 Scope: the *backward-looking* Phillips Curve only. The hybrid Phillips Curve, Focus
 expectations, factor models and ML models are intentionally NOT implemented here. The

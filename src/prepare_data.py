@@ -1,6 +1,6 @@
 """Parse and standardize the raw CEIC CSV exports into a clean monthly dataset.
 
-Phase 2 (traditional econometric models) of the replication of
+Traditional econometric models component of the replication of
 "Machine learning methods for inflation forecasting in Brazil".
 
 This module ONLY prepares data. No forecasting model is implemented here.

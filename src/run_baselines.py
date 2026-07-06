@@ -1,4 +1,4 @@
-"""Run the Phase 2 baseline out-of-sample forecasting exercise.
+"""Run the baseline out-of-sample forecasting exercise.
 
 Models: RW, RW_AO, AR(1) (see src/models/baseline_models.py).
 Target: ipca_headline_mom.

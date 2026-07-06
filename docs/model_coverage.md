@@ -1,4 +1,4 @@
-# Model Coverage — Phase 2 (Traditional Econometric Models)
+# Model Coverage — Traditional Econometric Models
 
 Replication of *"Machine learning methods for inflation forecasting in Brazil: new
 contenders versus classical models."* Scope: **traditional / classical benchmarks only**.
@@ -14,9 +14,9 @@ origin 2011-01, horizons `h = 1..12` (target date `t + h`), evaluation target
 | **AR1** | Yes | `ipca_headline_mom` | `outputs/forecasts/baseline_forecasts.csv` | OLS AR(1) fit fresh on expanding window; closed-form h-step forecast. |
 | **VAR1** | Yes | `ipca_non_regulated_mom`, `ipca_administered_mom`, `m4_diff`, `exchange_rate_diff` | `outputs/forecasts/var_forecasts.csv` | VAR(1) + constant; headline = 0.75·market + 0.25·administered. Administered `(SP)` caveat (audit §3.2). |
 | **PC_BACKWARD** | Yes | `ipca_non_regulated_mom`, `imported_inflation`, `ibc_br_sa` (HP gap), `ipca_administered_mom` | `outputs/forecasts/pc_backward_forecasts.csv` | Direct horizon-specific market regression + AR(1) administered; headline = 0.75·market + 0.25·administered. Recursive HP gap, λ=129600 (monthly). Administered `(SP)` caveat. |
-| **PC_HYBRID** | **No** | *(would add Focus `h=1..12` expected inflation)* | — | **Focus-survey expected-inflation data unavailable** in the downloaded CEIC data; cannot be implemented in this phase. |
-| Factor models | No | — | — | Belong to another project phase (out of Phase 2 scope). |
-| ML models | No | — | — | Belong to another project phase (out of Phase 2 scope). |
+| **PC_HYBRID** | **No** | *(would add Focus `h=1..12` expected inflation)* | — | **Focus-survey expected-inflation data unavailable** in the downloaded CEIC data; cannot be implemented in this project. |
+| Factor models | No | — | — | Out of scope for this project. |
+| ML models | No | — | — | Out of scope for this project. |
 
 **Combined outputs** (all implemented models): forecasts in
 `outputs/forecasts/traditional_forecasts_so_far.csv`, MSE in

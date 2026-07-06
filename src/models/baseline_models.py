@@ -1,4 +1,4 @@
-"""Baseline forecasting models for Phase 2 (traditional benchmarks).
+"""Baseline forecasting models (traditional benchmarks).
 
 Scope: Random Walk (RW), Random Walk Atkeson-Ohanian (RW_AO), and AR(1) only.
 VAR and the Phillips Curve are intentionally NOT implemented here.

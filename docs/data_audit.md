@@ -1,11 +1,11 @@
 # Data Audit — Raw CEIC CSV Files
 
-**Project:** Phase 2 — traditional econometric models for Brazilian inflation forecasting
+**Project:** Traditional econometric models for Brazilian inflation forecasting
 (replication of *"Machine learning methods for inflation forecasting in Brazil: new
 contenders versus classical models"*).
 
 **Scope of this document:** inspection and standardization of the raw CEIC exports only.
-No forecasting model is implemented in this phase.
+No forecasting model is implemented in this document.
 
 **Audit date:** 2026-07-06
 **Source directory:** `data/raw/` (read-only; not committed — see `.gitignore`)

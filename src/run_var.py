@@ -1,4 +1,4 @@
-"""Run the Phase 2 VAR(1) out-of-sample forecasting exercise.
+"""Run the VAR(1) out-of-sample forecasting exercise.
 
 Model: VAR(1) over four endogenous variables (see src/models/var_model.py). Headline IPCA
 is reconstructed as 0.75 * market inflation + 0.25 * administered inflation; it is never

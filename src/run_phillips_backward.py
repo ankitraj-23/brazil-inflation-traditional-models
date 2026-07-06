@@ -1,4 +1,4 @@
-"""Run the Phase 2 backward-looking Phillips Curve out-of-sample forecasting exercise.
+"""Run the backward-looking Phillips Curve out-of-sample forecasting exercise.
 
 Model: backward-looking Phillips Curve (see src/models/phillips_curve.py). Market /
 non-regulated inflation is modelled by a horizon-specific ("direct") backward regression

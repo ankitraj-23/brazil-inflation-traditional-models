@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Run the full Phase 2 traditional-models pipeline, in order.
+# Run the full traditional-models pipeline, in order.
 #
 #   1. prepare_data.py          parse raw CEIC exports -> clean dataset
 #   2. run_baselines.py         RW, RW_AO, AR1
@@ -35,4 +35,4 @@ python src/run_var.py
 section "4/4  Backward Phillips Curve forecasts (src/run_phillips_backward.py)"
 python src/run_phillips_backward.py
 
-section "DONE  All Phase 2 stages completed successfully."
+section "DONE  All pipeline stages completed successfully."
