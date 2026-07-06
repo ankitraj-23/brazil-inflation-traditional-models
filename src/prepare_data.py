@@ -119,6 +119,9 @@ def build_transformations(frame: pd.DataFrame) -> pd.DataFrame:
     )
     out["imported_inflation"] = out["exchange_rate_mom_pct"] + 0.165
     out["m4_diff"] = out["broad_money_m4"].diff()
+    # First difference of the nominal exchange rate (level, BRL per USD), used as an
+    # endogenous variable in the VAR. Distinct from exchange_rate_mom_pct (percent change).
+    out["exchange_rate_diff"] = out["exchange_rate_brl_per_usd"].diff()
 
     # Final column order.
     columns = [
@@ -132,6 +135,7 @@ def build_transformations(frame: pd.DataFrame) -> pd.DataFrame:
         "exchange_rate_mom_pct",
         "imported_inflation",
         "m4_diff",
+        "exchange_rate_diff",
     ]
     return out[columns]
 

@@ -4,9 +4,9 @@
 Replication of *"Machine learning methods for inflation forecasting in Brazil: new
 contenders versus classical models."*
 
-> ⚠️ **Status: BASELINE MODELS IMPLEMENTED.** The audited clean dataset (§1–§4) plus the
-> three baseline benchmarks — RW, RW_AO, AR(1) — are done (§5). VAR(1) and the Phillips
-> Curve remain out of scope for now (§6).
+> ⚠️ **Status: BASELINE + VAR(1) MODELS IMPLEMENTED.** The audited clean dataset (§1–§4),
+> the three baseline benchmarks — RW, RW_AO, AR(1) (§5) — and the VAR(1) model (§6) are
+> done. The backward-looking Phillips Curve remains out of scope for now (§7).
 
 ---
 
@@ -48,7 +48,7 @@ Two documented data caveats (details in the audit):
 ## 3. Transformations
 
 Implemented in [`src/prepare_data.py`](../src/prepare_data.py), producing
-`data/processed/traditional_models_clean_data.csv` (180 × 11).
+`data/processed/traditional_models_clean_data.csv` (180 × 12).
 
 Raw pass-through columns: `ipca_general_index`, `ipca_non_regulated_mom`,
 `ipca_administered_mom`, `broad_money_m4`, `exchange_rate_brl_per_usd`, `ibc_br_sa`.
@@ -61,12 +61,13 @@ Derived columns:
 | `exchange_rate_mom_pct` | `100 × (exchange_rate_brl_per_usd / lag(exchange_rate_brl_per_usd) − 1)` — monthly % change of the BRL/USD rate |
 | `imported_inflation` | `exchange_rate_mom_pct + 0.165` — exchange-rate pass-through proxy with the paper's additive constant |
 | `m4_diff` | `broad_money_m4 − lag(broad_money_m4)` — first difference of M4 (BRL mn) |
+| `exchange_rate_diff` | `exchange_rate_brl_per_usd − lag(exchange_rate_brl_per_usd)` — first difference of the nominal BRL/USD rate (level), used as a VAR endogenous variable (distinct from `exchange_rate_mom_pct`, the percent change) |
 
 **Dates** are stored as **month-end datetimes** (`YYYY-MM-DD`, e.g. `2004-01-31`).
 
 **First-row NaNs (2004-01):** `ipca_headline_mom`, `exchange_rate_mom_pct`,
-`imported_inflation`, and `m4_diff` are undefined in the first month because the
-lag / first difference has no in-sample predecessor. This is expected.
+`imported_inflation`, `m4_diff`, and `exchange_rate_diff` are undefined in the first month
+because the lag / first difference has no in-sample predecessor. This is expected.
 
 ---
 
@@ -127,12 +128,77 @@ Reproduce with `python src/run_baselines.py` (prints validation diagnostics).
 
 ---
 
-## 6. Next planned models (NOT yet implemented)
+## 6. VAR(1) model (implemented)
+
+First-order vector autoregression, following the paper's specification.
+**Code:** [`src/models/var_model.py`](../src/models/var_model.py) (model) and
+[`src/run_var.py`](../src/run_var.py) (exercise + validation + outputs).
+
+### 6.1 Endogenous variables and lag
+
+The VAR is estimated over **four** endogenous variables (fixed order), with **one lag** and
+a **constant**:
+
+1. `ipca_non_regulated_mom` — market / non-regulated IPCA inflation
+2. `ipca_administered_mom` — administered IPCA inflation
+3. `m4_diff` — **first difference** of M4
+4. `exchange_rate_diff` — **first difference** of the nominal BRL/USD exchange rate (level)
+
+M4 and the exchange rate enter the VAR **first-differenced** (they are non-stationary in
+level); the two IPCA components are already monthly rates and enter as-is. Fitting uses
+`statsmodels.tsa.api.VAR` with `fit(1, trend="c")` — no auto lag selection, no full-sample
+fitting.
+
+> ⚠️ **Administered-prices caveat.** The administered component comes from the CEIC file
+> whose raw title reads *"IPCA: MoM: Administred Prices (SP): Total"*. The `(SP)` token is
+> treated as a series-label artifact and the series as **national** administered prices
+> (metadata `Region=Brazil`, empty `Subnational`, and its pairing with the non-regulated
+> series). This is a documented judgement, not a certainty — see
+> [`docs/data_audit.md` §3.2](./data_audit.md).
+
+### 6.2 Headline reconstruction
+
+Headline IPCA is **not** modelled directly inside the VAR. At each origin the two forecast
+inflation components are combined into the headline forecast:
+
+```
+headline_forecast(t+h) = 0.75 · market_forecast(t+h) + 0.25 · administered_forecast(t+h)
+```
+
+The evaluation target is still `ipca_headline_mom` (the actual value at `t + h`).
+
+### 6.3 Design
+
+Identical expanding-window recursive OOS protocol as the baselines (§5.1): first origin
+2011-01, horizons `h = 1..12` with target date `t + h`, only observations up to and
+including `t` used at each origin (`df.loc[:t]`), and `(t, h)` produced only if
+`t + h ≤ 2018-12`. Rows with NaN among the four VAR variables are dropped before fitting
+(the 2004-01 first-difference NaNs). The VAR is re-fit fresh at every origin; the model
+forecasts `max(h)` steps and the h-th step is used. Counts match the baselines: `h=1` →
+**95** forecasts down to `h=12` → **84** (verified by hard checks in `run_var.py`).
+
+### 6.4 Outputs
+
+- `outputs/forecasts/var_forecasts.csv` — one row per `(origin, horizon)` for `VAR1`, same
+  schema as the baseline forecast file (1,074 rows).
+- `outputs/tables/var_mse_by_horizon.csv` — `horizon, model, mse, n_forecasts`.
+- `outputs/forecasts/traditional_forecasts_so_far.csv` — the baseline forecasts (RW, RW_AO,
+  AR1) concatenated with `VAR1` (4,296 rows).
+- `outputs/tables/traditional_mse_so_far_by_horizon.csv` — combined MSE by horizon for all
+  four models.
+- `outputs/figures/traditional_mse_so_far_by_horizon.png` — MSE vs horizon, one line per
+  model.
+
+Reproduce with `python src/run_var.py` (requires `python src/run_baselines.py` to have been
+run first, since it merges the baseline forecast file). Prints validation diagnostics.
+
+---
+
+## 7. Next planned models (NOT yet implemented)
 
 Out of scope for the current deliverable:
 
-1. **VAR(1)** — first-order vector autoregression over the core variable set.
-2. **Backward-looking Phillips Curve** — inflation on its own lags plus an activity /
+1. **Backward-looking Phillips Curve** — inflation on its own lags plus an activity /
    slack term (IBC-Br) and imported-inflation channel.
 
-Until these are implemented and validated, **no results for them should be reported.**
+Until this is implemented and validated, **no results for it should be reported.**
