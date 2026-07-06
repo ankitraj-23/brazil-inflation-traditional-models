@@ -1,54 +1,79 @@
-# Traditional Econometric Models for Inflation Forecasting in Brazil
+# Traditional Econometric Benchmarks for Brazilian Inflation Forecasting
 
-**Phase 2** of a replication project for the paper:
+A reproducible forecasting pipeline for Brazilian monthly consumer-price inflation
+(IPCA month-on-month) built around classical econometric models. Each model is evaluated
+in an expanding-window, out-of-sample design across forecast horizons `h = 1, …, 12`,
+producing per-forecast records, MSE-by-horizon tables, and comparison figures.
 
-> *"Machine learning methods for inflation forecasting in Brazil: new contenders
-> versus classical models."*
-
-This repository covers **only the traditional / classical econometric benchmarks**
-(Phase 2). The factor models and machine-learning contenders from the paper belong to
-other project phases and are **not** implemented here.
+The project is inspired by the research paper *"Machine learning methods for inflation
+forecasting in Brazil: new contenders versus classical models"* (Araujo and Gaglianone).
+It focuses specifically on the **traditional / classical econometric benchmarks** discussed
+in that literature. It is not a complete reproduction of the paper: the machine-learning
+contenders and factor models are outside its scope, and the hybrid Phillips Curve is not
+implemented (see [Model coverage and limitations](#model-coverage-and-limitations)).
 
 ---
 
-## Scope
+## Motivation
 
-Replicate the classical benchmarks for forecasting Brazilian headline consumer-price
-inflation (IPCA month-on-month), over the monthly sample **2004-01 … 2018-12**, using an
-expanding-window recursive out-of-sample design (first forecast origin 2011-01, horizons
-`h = 1..12`).
+Inflation forecasting is central to monetary policy, wage and contract indexation, and
+private-sector planning, and Brazil's IPCA is the headline series that anchors those
+decisions. Before reaching for more elaborate machine-learning methods, it is worth
+establishing how well simple, well-understood econometric models perform on the same task
+under an honest out-of-sample protocol.
 
-### Implemented models
+Traditional benchmarks — random walks, autoregressions, small VARs, and Phillips-curve
+regressions — are cheap to estimate, transparent, and surprisingly hard to beat at short
+horizons. They serve two purposes here: they document a baseline level of forecast accuracy
+for Brazilian inflation, and they provide the reference points that any more complex model
+should be measured against. A new method that cannot outperform these benchmarks has not
+earned its added complexity.
+
+---
+
+## Implemented models
+
+All models target headline IPCA month-on-month inflation (`ipca_headline_mom`) and share the
+same out-of-sample protocol described below.
 
 | Model | Description |
 |---|---|
-| **RW** | Random Walk — last observed value, flat across horizons. |
-| **RW_AO** | Atkeson–Ohanian — mean of the last 48 observations, flat across horizons. |
-| **AR1** | AR(1), fit fresh by OLS on the expanding window; closed-form h-step forecast. |
-| **VAR1** | VAR(1) over four endogenous variables; headline reconstructed 0.75·market + 0.25·administered. |
-| **PC_BACKWARD** | Backward-looking Phillips Curve (direct horizon-specific market regression + AR(1) administered). |
+| **RW** | Random Walk — the last observed value, carried flat across all horizons. |
+| **RW_AO** | Atkeson–Ohanian style moving-average random walk — the mean of the last 48 observations, flat across horizons. |
+| **AR1** | Autoregressive benchmark — AR(1) fit by OLS on the expanding window, with a closed-form h-step forecast. |
+| **VAR1** | First-order vector autoregression over market (non-regulated) inflation, administered inflation, the first difference of M4, and the first difference of the BRL/USD exchange rate; headline is reconstructed as `0.75·market + 0.25·administered`. |
+| **PC_BACKWARD** | Backward-looking Phillips Curve — a horizon-specific market-inflation regression on lagged inflation, imported inflation, and a recursively computed HP-filter output gap, combined with an AR(1) for administered inflation. |
 
-See [`docs/methodology.md`](docs/methodology.md) for full specifications and
-[`docs/model_coverage.md`](docs/model_coverage.md) for a compact coverage table.
-
-### Not implemented
-
-- **PC_HYBRID** (hybrid Phillips Curve) — requires Focus-survey `h = 1..12` expected-inflation
-  data, which was **not available** in the downloaded CEIC data. See caveats below.
-- **Factor models and machine-learning models** — these belong to **other project phases**,
-  not Phase 2.
+Full specifications are in [docs/methodology.md](docs/methodology.md); a compact coverage
+matrix is in [docs/model_coverage.md](docs/model_coverage.md).
 
 ---
 
-## Data policy
+## Forecasting design
 
-- **Raw CEIC files are not committed.** `data/raw/` is gitignored; you must supply the CSVs.
-- **Processed data and outputs are gitignored** (`data/processed/`, `outputs/`) — they are
-  regenerated from the raw files by the scripts.
-- The user must place the CEIC CSV exports into `data/raw/` using the **exact expected
-  filenames** below.
+- **Frequency:** monthly.
+- **Sample window:** 2004-01 to 2018-12 (180 observations).
+- **First forecast origin:** 2011-01.
+- **Horizons:** 1 to 12 months ahead; for origin `t` and horizon `h`, the target date is `t + h`.
+- **Estimation:** expanding-window recursive — at each origin, models use only observations
+  up to and including that origin, and are re-fit as the window grows. There is no rolling
+  window and no full-sample fitting.
+- **No look-ahead:** a `(t, h)` pair is produced only if `t + h ≤ 2018-12`, and no model is
+  trained on data observed after its forecast origin.
+- **Forecast counts:** `h = 1` yields 95 forecasts, declining by exactly one per horizon down
+  to 84 forecasts at `h = 12`. These counts are enforced by hard checks in the run scripts.
 
-### Expected raw filenames (place in `data/raw/`)
+---
+
+## Data
+
+The input series are CEIC exports (IPCA components, M4, the BRL/USD exchange rate, and the
+IBC-Br activity index). To respect potential licensing terms, **raw CEIC data is not
+committed** — `data/raw/` is gitignored and must be populated locally. Processed data
+(`data/processed/`) and all forecast outputs (`outputs/`) are generated by the pipeline and
+are likewise gitignored.
+
+Place the CEIC CSV exports in `data/raw/` using these exact filenames:
 
 ```
 ipca_general_index.csv
@@ -59,114 +84,88 @@ exchange_rate_brl_per_usd_period_avg.csv
 ibc_br_seasonally_adjusted.csv
 ```
 
-Each file is a standard CEIC export (a metadata block followed by `MM/YYYY,value` data
-rows covering 2004-01 … 2018-12). The parser locates the data block by regex, so the
-varying metadata-block length does not matter. Full inspection in
-[`docs/data_audit.md`](docs/data_audit.md).
+Each file is a standard CEIC export: a metadata block followed by `MM/YYYY,value` data rows
+covering 2004-01 to 2018-12. The parser locates the data block by regex, so a varying
+metadata-block length does not matter. A full inspection of the raw files, their units, and
+their quirks is in [docs/data_audit.md](docs/data_audit.md).
 
 ---
 
-## Setup
+## Repository structure
 
-```bash
-# 1. Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Place the six raw CEIC CSVs in data/raw/ (see filenames above)
+```
+README.md
+docs/            # methodology, model coverage, and data audit
+scripts/         # run_all.sh pipeline driver
+src/             # data preparation and model/run code
+data/raw/        # (gitignored) place the six CEIC CSVs here
+data/processed/  # (gitignored) generated clean dataset
+outputs/         # (gitignored) forecasts, MSE tables, figures
 ```
 
 ---
 
 ## Reproducibility
 
-Run the full pipeline with the helper script:
+Create an environment, install dependencies, and run the full pipeline:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 bash scripts/run_all.sh
 ```
 
-Or run each stage individually, **in order** (each stage depends on the previous one's
-outputs):
-
-```bash
-python src/prepare_data.py          # parse raw CEIC -> clean dataset
-python src/run_baselines.py         # RW, RW_AO, AR1
-python src/run_var.py               # VAR1 (+ combined RW/RW_AO/AR1/VAR1)
-python src/run_phillips_backward.py # PC_BACKWARD (+ full combined file)
-```
-
-Each script prints validation diagnostics and exits non-zero if any hard check fails.
+`scripts/run_all.sh` runs data preparation followed by each model stage in dependency order.
+Every stage prints validation diagnostics and exits non-zero if any hard check fails.
 
 ---
 
-## Outputs produced
+## Outputs
 
-All written under `outputs/` (gitignored):
+The pipeline writes the following under `outputs/` (generated locally, not committed):
 
-| File | Contents |
-|---|---|
-| `outputs/forecasts/baseline_forecasts.csv` | Per-forecast rows for RW, RW_AO, AR1. |
-| `outputs/forecasts/var_forecasts.csv` | Per-forecast rows for VAR1. |
-| `outputs/forecasts/pc_backward_forecasts.csv` | Per-forecast rows for PC_BACKWARD. |
-| `outputs/forecasts/traditional_forecasts_so_far.csv` | All five models combined. |
-| `outputs/tables/*_mse_by_horizon.csv` | MSE tables (per model and combined) by horizon. |
-| `outputs/figures/*_mse_by_horizon.png` | MSE-vs-horizon figures (per model and combined). |
+**Forecasts** — one row per `(origin, horizon, model)` with forecast origin, target date,
+horizon, model, forecast, actual, error, and squared error:
 
----
+- `outputs/forecasts/baseline_forecasts.csv` — RW, RW_AO, AR1
+- `outputs/forecasts/var_forecasts.csv` — VAR1
+- `outputs/forecasts/pc_backward_forecasts.csv` — PC_BACKWARD
+- `outputs/forecasts/traditional_forecasts_so_far.csv` — all five models combined
 
-## Validation checks
+**MSE tables** — mean squared error by horizon (`horizon, model, mse, n_forecasts`):
 
-Each run enforces (and fails on) the following:
+- `outputs/tables/*_mse_by_horizon.csv` (per model)
+- `outputs/tables/traditional_mse_so_far_by_horizon.csv` (combined)
 
-- `h = 1` produces **95** forecasts per model.
-- `h = 12` produces **84** forecasts per model.
-- Forecast counts decline by exactly 1 per horizon (95 → 84).
-- **No target date after 2018-12.**
-- **Expanding-window only** — at each origin, only observations up to and including the
-  origin are used (no look-ahead; the PC additionally verifies no training pair has a
-  target date after its forecast origin).
-- **No raw CEIC data is committed** (enforced by `.gitignore`).
+**Figure** — MSE versus horizon, one line per model:
+
+- `outputs/figures/traditional_mse_so_far_by_horizon.png`
 
 ---
 
-## Known caveats
+## Model coverage and limitations
 
-- **Administered-prices file `(SP)` token.** `ipca_administered_prices_sp_total_mom.csv`
-  has a raw title containing `"(SP)"`, but its metadata (`Region = Brazil`, empty
-  `Subnational`) and its pairing with the non-regulated series indicate **national**
-  Brazil-wide administered prices. It is treated as national; this is a documented
-  judgement, not a certainty — see [`docs/data_audit.md` §3.2](docs/data_audit.md).
-- **HP-filter smoothing parameter.** The PC output gap uses `λ = 129600`, the standard
-  Ravn–Uhlig value for **monthly** data (`1600 · 12⁴`).
-- **PC_HYBRID missing.** The hybrid Phillips Curve is not implemented because Focus-survey
-  expected-inflation data (`h = 1..12`) was unavailable in the downloaded CEIC data.
+- **Hybrid Phillips Curve — not included.** The hybrid specification requires Focus-survey
+  h-step-ahead expected-inflation data (`h = 1, …, 12`), which was not available in the
+  downloaded CEIC dataset. It is therefore intentionally left out rather than approximated.
+- **Factor models and machine-learning models — out of scope.** This repository is
+  deliberately limited to classical econometric benchmarks; factor and ML methods are not
+  implemented here.
+- **Administered-prices naming caveat.** The administered-prices source file has a raw title
+  containing a `"(SP)"` token, while its metadata indicates Brazil-level coverage
+  (`Region = Brazil`, empty `Subnational`) and it pairs with the non-regulated series as the
+  standard national free/administered decomposition. It is treated as national administered
+  prices; this is a documented judgement rather than a certainty. See
+  [docs/data_audit.md](docs/data_audit.md) §3.2.
+- **HP-filter smoothing parameter.** The Phillips-curve output gap uses `λ = 129600`, the
+  standard Ravn–Uhlig value for monthly data.
 
 ---
 
-## Repository layout
+## Research reference
 
-```
-data/raw/           # (gitignored) place the six CEIC CSVs here
-data/processed/     # (gitignored) generated clean dataset
-outputs/            # (gitignored) forecasts, tables, figures
-src/
-  prepare_data.py
-  run_baselines.py
-  run_var.py
-  run_phillips_backward.py
-  models/
-    baseline_models.py
-    var_model.py
-    phillips_curve.py
-scripts/
-  run_all.sh
-docs/
-  data_audit.md
-  methodology.md
-  model_coverage.md
-requirements.txt
-```
+Araujo, G. S., and Gaglianone, W. P. *"Machine learning methods for inflation forecasting in
+Brazil: new contenders versus classical models."* This repository draws its model set and
+forecasting design from the classical-benchmark portion of that work; publication details are
+not reproduced here.
