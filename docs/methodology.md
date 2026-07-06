@@ -4,9 +4,9 @@
 Replication of *"Machine learning methods for inflation forecasting in Brazil: new
 contenders versus classical models."*
 
-> ⚠️ **Status: DATA PREPARATION ONLY.** No forecasting model is implemented yet. This
-> phase builds the audited, clean monthly dataset. Model implementation is the next step
-> (see §5).
+> ⚠️ **Status: BASELINE MODELS IMPLEMENTED.** The audited clean dataset (§1–§4) plus the
+> three baseline benchmarks — RW, RW_AO, AR(1) — are done (§5). VAR(1) and the Phillips
+> Curve remain out of scope for now (§6).
 
 ---
 
@@ -82,16 +82,57 @@ block by regex (robust to the varying metadata-block length) and never edits raw
 
 ---
 
-## 5. Next planned models (NOT yet implemented)
+## 5. Baseline forecasting models (implemented)
 
-The following traditional benchmarks are planned for the next phase and are **not** part
-of this deliverable:
+**Target:** `ipca_headline_mom` (headline IPCA month-on-month %).
+**Code:** [`src/models/baseline_models.py`](../src/models/baseline_models.py) (models) and
+[`src/run_baselines.py`](../src/run_baselines.py) (exercise + validation + outputs).
 
-1. **Random Walk (RW)** — forecast = last observed value.
-2. **Random Walk with Atkeson–Ohanian (RW-AO)** — 12-month moving-average variant.
-3. **AR(1)** — first-order autoregression on IPCA headline MoM.
-4. **VAR(1)** — first-order vector autoregression over the core variable set.
-5. **Backward-looking Phillips Curve** — inflation on its own lags plus an activity /
+### 5.1 Expanding-window recursive out-of-sample design
+
+Forecasts are produced by a recursive, expanding-window exercise — never using future
+data:
+
+- **First forecast origin:** 2011-01.
+- **Horizons:** `h = 1..12`. For an origin `t` and horizon `h`, the **target date is
+  `t + h` months**.
+- **Information set:** at each origin `t`, models see only observations up to and
+  including `t`. As origins advance the training window grows (expanding, not rolling).
+- **Right edge:** a `(t, h)` pair is produced only if `t + h ≤ 2018-12`.
+- **Resulting counts:** `h=1` → **95** forecasts, declining by exactly 1 per horizon down
+  to `h=12` → **84** (last origins recede as the horizon lengthens). Verified by hard
+  checks in `run_baselines.py`.
+
+### 5.2 Models
+
+| Model | h-step forecast from origin `t` |
+|---|---|
+| **RW** (Random Walk) | `ŷ(t+h) = y_t` for every `h` — the last observed value, flat across horizons. |
+| **RW_AO** (Atkeson–Ohanian) | `ŷ(t+h) = mean(last 48 obs up to t)` for every `h` — a flat 48-month moving average. If fewer than 48 observations are available the code **raises** (never silently shrinks the window). |
+| **AR(1)** | Fit `y_s = α + β·y_{s-1}` by OLS on training data up to `t`, then `ŷ(t+h) = β^h · y_t + α · Σ_{i=0}^{h-1} β^i`. The geometric sum uses `(1−β^h)/(1−β)`, switching to its limit `h` when `β` is within `1e-8` of 1 (safe near a unit root). |
+
+AR(1) is fit fresh at every origin on the expanding window. No `auto_arima`, no ARMA(1,1),
+no full-sample fitting, and no future data are used.
+
+### 5.3 Outputs
+
+- `outputs/forecasts/baseline_forecasts.csv` — one row per `(origin, horizon, model)` with
+  `forecast_origin, target_date, horizon, model, forecast, actual, error, squared_error`
+  (`error = actual − forecast`). 3,222 rows.
+- `outputs/tables/baseline_mse_by_horizon.csv` — `horizon, model, mse, n_forecasts`
+  (`mse = mean(squared_error)`).
+- `outputs/figures/baseline_mse_by_horizon.png` — MSE vs horizon, one line per model.
+
+Reproduce with `python src/run_baselines.py` (prints validation diagnostics).
+
+---
+
+## 6. Next planned models (NOT yet implemented)
+
+Out of scope for the current deliverable:
+
+1. **VAR(1)** — first-order vector autoregression over the core variable set.
+2. **Backward-looking Phillips Curve** — inflation on its own lags plus an activity /
    slack term (IBC-Br) and imported-inflation channel.
 
-Until these are implemented and validated, **no forecasting results should be reported.**
+Until these are implemented and validated, **no results for them should be reported.**
