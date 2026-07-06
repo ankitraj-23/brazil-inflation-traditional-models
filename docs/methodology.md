@@ -1,0 +1,97 @@
+# Methodology
+
+**Project:** Phase 2 — traditional econometric models for Brazilian inflation forecasting.
+Replication of *"Machine learning methods for inflation forecasting in Brazil: new
+contenders versus classical models."*
+
+> ⚠️ **Status: DATA PREPARATION ONLY.** No forecasting model is implemented yet. This
+> phase builds the audited, clean monthly dataset. Model implementation is the next step
+> (see §5).
+
+---
+
+## 1. Project objective
+
+Replicate the **classical / traditional econometric** benchmarks used in the paper for
+forecasting Brazilian consumer-price inflation (IPCA), over the monthly sample
+**2004-01 … 2018-12**. This phase's deliverable is a single, reproducible clean dataset
+that later model code will consume. The machine-learning contenders are out of scope for
+this phase.
+
+---
+
+## 2. Raw data sources
+
+All series are CEIC exports in `data/raw/` (read-only; **not committed** — excluded via
+`.gitignore`). Full inspection in [`docs/data_audit.md`](./data_audit.md).
+
+| Clean variable | Raw file | Series | Source | Unit |
+|---|---|---|---|---|
+| `ipca_general_index` | `ipca_general_index.csv` | IPCA: General (price index level) | IBGE | Dec1993=100 |
+| `ipca_non_regulated_mom` | `ipca_non_regulated_mom.csv` | IPCA MoM: Non Regulated (free prices) | BCB | % |
+| `ipca_administered_mom` | `ipca_administered_prices_sp_total_mom.csv` | IPCA MoM: Administered prices (national — see audit §3.2) | BCB | % |
+| `broad_money_m4` | `broad_money_m4.csv` | Broad Money Supply: M4 | BCB | BRL mn |
+| `exchange_rate_brl_per_usd` | `exchange_rate_brl_per_usd_period_avg.csv` | Exchange rate, period average (BRL per USD) | CEIC / IMF / FRB | BRL per USD |
+| `ibc_br_sa` | `ibc_br_seasonally_adjusted.csv` | IBC-Br economic activity index, seasonally adjusted | BCB | 2022=100 |
+
+Sample: **180 monthly observations**, 2004-01 … 2018-12, no gaps, no missing raw values.
+
+Two documented data caveats (details in the audit):
+- The exchange-rate file's unit **label** reads `USD/BRL` but the **values are BRL per
+  USD**; used as-is (correct direction for the intended variable).
+- The administered-prices file's raw title contains `(SP)`; treated as **national**
+  administered prices based on metadata (`Region=Brazil`, empty `Subnational`) and its
+  pairing with the non-regulated series. Flagged as a judgement, not a certainty.
+
+---
+
+## 3. Transformations
+
+Implemented in [`src/prepare_data.py`](../src/prepare_data.py), producing
+`data/processed/traditional_models_clean_data.csv` (180 × 11).
+
+Raw pass-through columns: `ipca_general_index`, `ipca_non_regulated_mom`,
+`ipca_administered_mom`, `broad_money_m4`, `exchange_rate_brl_per_usd`, `ibc_br_sa`.
+
+Derived columns:
+
+| Column | Definition |
+|---|---|
+| `ipca_headline_mom` | `100 × (ipca_general_index / lag(ipca_general_index) − 1)` — headline IPCA month-on-month % from the index level |
+| `exchange_rate_mom_pct` | `100 × (exchange_rate_brl_per_usd / lag(exchange_rate_brl_per_usd) − 1)` — monthly % change of the BRL/USD rate |
+| `imported_inflation` | `exchange_rate_mom_pct + 0.165` — exchange-rate pass-through proxy with the paper's additive constant |
+| `m4_diff` | `broad_money_m4 − lag(broad_money_m4)` — first difference of M4 (BRL mn) |
+
+**Dates** are stored as **month-end datetimes** (`YYYY-MM-DD`, e.g. `2004-01-31`).
+
+**First-row NaNs (2004-01):** `ipca_headline_mom`, `exchange_rate_mom_pct`,
+`imported_inflation`, and `m4_diff` are undefined in the first month because the
+lag / first difference has no in-sample predecessor. This is expected.
+
+---
+
+## 4. Reproducibility
+
+```bash
+python src/prepare_data.py
+```
+
+Reads only `data/raw/`, writes only
+`data/processed/traditional_models_clean_data.csv`. The parser locates each file's data
+block by regex (robust to the varying metadata-block length) and never edits raw files.
+
+---
+
+## 5. Next planned models (NOT yet implemented)
+
+The following traditional benchmarks are planned for the next phase and are **not** part
+of this deliverable:
+
+1. **Random Walk (RW)** — forecast = last observed value.
+2. **Random Walk with Atkeson–Ohanian (RW-AO)** — 12-month moving-average variant.
+3. **AR(1)** — first-order autoregression on IPCA headline MoM.
+4. **VAR(1)** — first-order vector autoregression over the core variable set.
+5. **Backward-looking Phillips Curve** — inflation on its own lags plus an activity /
+   slack term (IBC-Br) and imported-inflation channel.
+
+Until these are implemented and validated, **no forecasting results should be reported.**
