@@ -4,9 +4,10 @@
 Replication of *"Machine learning methods for inflation forecasting in Brazil: new
 contenders versus classical models."*
 
-> ⚠️ **Status: BASELINE + VAR(1) MODELS IMPLEMENTED.** The audited clean dataset (§1–§4),
-> the three baseline benchmarks — RW, RW_AO, AR(1) (§5) — and the VAR(1) model (§6) are
-> done. The backward-looking Phillips Curve remains out of scope for now (§7).
+> ⚠️ **Status: BASELINE + VAR(1) + BACKWARD PHILLIPS CURVE IMPLEMENTED.** The audited clean
+> dataset (§1–§4), the three baseline benchmarks — RW, RW_AO, AR(1) (§5) — the VAR(1) model
+> (§6) and the backward-looking Phillips Curve (§7) are done. The hybrid Phillips Curve,
+> Focus expectations, factor models and ML models remain out of scope (§8).
 
 ---
 
@@ -194,11 +195,110 @@ run first, since it merges the baseline forecast file). Prints validation diagno
 
 ---
 
-## 7. Next planned models (NOT yet implemented)
+## 7. Backward-looking Phillips Curve (implemented)
+
+Backward-looking (adaptive-expectations) Phillips Curve, following the paper.
+**Code:** [`src/models/phillips_curve.py`](../src/models/phillips_curve.py) (model) and
+[`src/run_phillips_backward.py`](../src/run_phillips_backward.py) (exercise + validation +
+outputs). Model name: **`PC_BACKWARD`**.
+
+### 7.1 Market / non-regulated inflation
+
+Market inflation is modelled by a **horizon-specific ("direct") backward regression** —
+one OLS fit per horizon `h`, mapping origin-dated predictors to the `h`-step-ahead market
+inflation:
+
+```
+market_inflation(t+h) = a0
+                      + a1 · market_inflation(t)
+                      + a2 · imported_inflation(t)
+                      + a3 · output_gap(t)
+                      + error
+```
+
+where `market_inflation = ipca_non_regulated_mom` and `imported_inflation` is the
+exchange-rate pass-through proxy (§3). Coefficients `(a0, a1, a2, a3)` are re-estimated
+fresh at every origin `t` on the expanding window, separately for each horizon.
+
+### 7.2 Recursive HP-filter output gap
+
+At each forecast origin `t` the **output gap** is computed *recursively*: the
+Hodrick–Prescott filter is applied to `ibc_br_sa` using **only observations up to and
+including `t`**, and its **cycle** component is used as `output_gap`. The same
+recursively-computed cycle supplies `output_gap(s)` for every training predictor date `s`
+and `output_gap(t)` for the current-origin predictor, so the filter never sees post-origin
+data (no look-ahead). The gap is **never** computed on the full sample.
+
+**Smoothing parameter:** `λ = 129600`, the standard value for **monthly** data
+(Ravn–Uhlig scaling, `λ = 1600 · 12⁴ = 129600`; 1600 is the classic quarterly value). This
+choice is fixed across all origins.
+
+### 7.3 Administered inflation — AR(1)
+
+Administered inflation (`ipca_administered_mom`) is forecast **separately** with an
+**AR(1)** (the paper specifies `p = 1, q = 0`), reusing the closed-form AR(1) from the
+baselines (§5.2): `ŷ(t+h) = β^h · y_t + α · Σ_{i=0}^{h-1} β^i`, fit fresh on the expanding
+window at every origin.
+
+> ⚠️ **Administered-prices caveat.** The administered component comes from the CEIC file
+> whose raw title reads *"IPCA: MoM: Administred Prices (SP): Total"*. The `(SP)` token is
+> treated as a series-label artifact and the series as **national** administered prices
+> (metadata `Region=Brazil`, empty `Subnational`, and its pairing with the non-regulated
+> series). This is a documented judgement, not a certainty — see
+> [`docs/data_audit.md` §3.2](./data_audit.md).
+
+### 7.4 Headline reconstruction
+
+Headline IPCA is **not** modelled directly. At each origin the two component forecasts are
+combined with the paper's weights:
+
+```
+headline_forecast(t+h) = 0.75 · market_forecast(t+h) + 0.25 · administered_forecast(t+h)
+```
+
+The evaluation target is `ipca_headline_mom` (the actual value at `t + h`).
+
+### 7.5 Design and no-look-ahead rules
+
+Identical expanding-window recursive OOS protocol as the baselines (§5.1) and the VAR
+(§6.3): first origin 2011-01, horizons `h = 1..12` with target date `t + h`, only
+observations up to and including `t` used at each origin, and `(t, h)` produced only if
+`t + h ≤ 2018-12`. Additional PC-specific guards:
+
+- For each horizon `h`, the training pairs satisfy **`predictor_date + h ≤ t`** — the model
+  is never trained on a target value observed after the origin. The run script verifies no
+  training pair has `target_date > forecast_origin`.
+- The predictor row at date `s = 2004-01` is dropped because `imported_inflation` is NaN
+  there (first-difference edge, §3). The minimum number of training rows used across all PC
+  regressions is **72** (first origin, `h = 12`).
+
+Counts match the other models: `h=1` → **95** forecasts down to `h=12` → **84** (verified
+by hard checks in `run_phillips_backward.py`).
+
+### 7.6 Outputs
+
+- `outputs/forecasts/pc_backward_forecasts.csv` — one row per `(origin, horizon)` for
+  `PC_BACKWARD`, same schema as the other forecast files (1,074 rows).
+- `outputs/tables/pc_backward_mse_by_horizon.csv` — `horizon, model, mse, n_forecasts`.
+- `outputs/forecasts/traditional_forecasts_so_far.csv` — RW, RW_AO, AR1, VAR1 and
+  PC_BACKWARD (5,370 rows).
+- `outputs/tables/traditional_mse_so_far_by_horizon.csv` — combined MSE by horizon for all
+  five models.
+- `outputs/figures/traditional_mse_so_far_by_horizon.png` — MSE vs horizon, one line per
+  model.
+
+Reproduce with `python src/run_phillips_backward.py` (requires `run_baselines.py` and
+`run_var.py` to have been run first, since it rebuilds the combined file from their forecast
+outputs). Prints validation diagnostics.
+
+---
+
+## 8. Next planned models (NOT yet implemented)
 
 Out of scope for the current deliverable:
 
-1. **Backward-looking Phillips Curve** — inflation on its own lags plus an activity /
-   slack term (IBC-Br) and imported-inflation channel.
+1. **Hybrid Phillips Curve** — adds forward-looking (Focus) expectations to the backward
+   specification.
+2. **Focus expectations, factor models, and machine-learning contenders.**
 
-Until this is implemented and validated, **no results for it should be reported.**
+Until each is implemented and validated, **no results for it should be reported.**
